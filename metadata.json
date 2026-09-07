@@ -1,0 +1,8 @@
+{
+  "name": "Remix GovTask - Quản Lý Công Việc \u0026 Điều Hành Cơ Quan",
+  "description": "Hệ thống quản lý công việc và điều hành toàn diện Cơ quan Ủy ban MTTQ Việt Nam tỉnh Bắc Ninh: Đăng nhập bằng Căn cước công dân (CCCD), phân quyền 4 cấp bậc, 4 ban chuyên môn, Ma trận nhiệm vụ chuẩn hóa (N1-N5, 1-5 Điểm), phân công thông minh và nhắc việc tự động.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
