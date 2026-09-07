@@ -1,14 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import fs from 'fs';
 import path from 'path';
-import {
-  INITIAL_USERS,
-  INITIAL_DEPARTMENTS,
-  INITIAL_TASKS,
-  INITIAL_TASK_MATRIX,
-  INITIAL_NOTIFICATIONS,
-  INITIAL_LOGIN_LOGS,
-} from '../src/data/mockData';
 
 // In-memory fallback and /tmp file fallback for Vercel Serverless
 const VERCEL_DATA_FILE = path.join('/tmp', 'mttq_system_database.json');
@@ -16,16 +8,24 @@ const VERCEL_DATA_FILE = path.join('/tmp', 'mttq_system_database.json');
 let memoryDatabase: any = null;
 
 function getInitialData() {
-  try {
-    const localDbPath = path.join(process.cwd(), 'data', 'system_database.json');
-    if (fs.existsSync(localDbPath)) {
-      const parsed = JSON.parse(fs.readFileSync(localDbPath, 'utf-8'));
-      if (parsed && parsed.users && parsed.tasks) {
-        return parsed;
+  // Thử các đường dẫn chứa cơ sở dữ liệu hệ thống
+  const candidatePaths = [
+    path.join(process.cwd(), 'data', 'system_database.json'),
+    path.join(process.cwd(), 'api', 'database.json'),
+  ];
+
+  for (const p of candidatePaths) {
+    try {
+      if (fs.existsSync(p)) {
+        const content = fs.readFileSync(p, 'utf-8');
+        const parsed = JSON.parse(content);
+        if (parsed && Array.isArray(parsed.users) && Array.isArray(parsed.tasks)) {
+          return parsed;
+        }
       }
+    } catch (err) {
+      console.warn(`[Vercel Serverless] Không thể tải từ ${p}:`, err);
     }
-  } catch (err) {
-    console.warn('[Vercel Serverless] Không tải được data/system_database.json:', err);
   }
 
   return {
@@ -34,13 +34,13 @@ function getInitialData() {
     createdAt: new Date().toISOString(),
     lastSavedAt: new Date().toISOString(),
     lastSavedBy: 'Hệ thống tự động khởi tạo',
-    users: INITIAL_USERS,
-    departments: INITIAL_DEPARTMENTS,
-    tasks: INITIAL_TASKS,
-    taskMatrix: INITIAL_TASK_MATRIX,
-    notifications: INITIAL_NOTIFICATIONS,
+    users: [],
+    departments: [],
+    tasks: [],
+    taskMatrix: [],
+    notifications: [],
     urgentDispatches: [],
-    loginLogs: INITIAL_LOGIN_LOGS,
+    loginLogs: [],
   };
 }
 
