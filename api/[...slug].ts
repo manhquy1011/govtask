@@ -1,6 +1,51 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import fs from 'fs';
 import path from 'path';
+import pg from 'pg';
+
+const { Pool } = pg;
+
+// Connection Pool for Vercel Serverless Postgres / Supabase
+let pgPool: pg.Pool | null = null;
+
+function getPgPool(): pg.Pool | null {
+  const connectionString =
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.DATABASE_URL ||
+    process.env.SUPABASE_POSTGRES_URL ||
+    process.env.POSTGRES_URL_NON_POOLING;
+
+  if (!connectionString) return null;
+
+  if (!pgPool) {
+    pgPool = new Pool({
+      connectionString,
+      ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
+      max: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
+  }
+  return pgPool;
+}
+
+let isPgTableEnsured = false;
+async function ensurePgTable(pool: pg.Pool) {
+  if (isPgTableEnsured) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS govtask_system_storage (
+        id VARCHAR(100) PRIMARY KEY,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    isPgTableEnsured = true;
+  } catch (err) {
+    console.warn('[Vercel Serverless] Lỗi tạo bảng PostgreSQL / Supabase:', err);
+  }
+}
 
 // In-memory fallback and /tmp file fallback for Vercel Serverless
 const VERCEL_DATA_FILE = path.join('/tmp', 'mttq_system_database.json');
@@ -45,10 +90,25 @@ function getInitialData() {
 }
 
 /**
- * Đọc dữ liệu từ Vercel KV (nếu được kết nối) hoặc /tmp hoặc RAM
+ * Đọc dữ liệu từ Supabase / PostgreSQL (nếu kết nối), Vercel KV, /tmp hoặc RAM
  */
 async function loadData() {
-  // 1. Kiểm tra Vercel KV / Upstash Redis nếu được cấu hình
+  // 1. Kiểm tra Supabase / PostgreSQL nếu Vercel đã gắn POSTGRES_URL
+  const pool = getPgPool();
+  if (pool) {
+    try {
+      await ensurePgTable(pool);
+      const res = await pool.query('SELECT data FROM govtask_system_storage WHERE id = $1', ['govtask_mttq_db']);
+      if (res.rows && res.rows.length > 0 && res.rows[0].data) {
+        memoryDatabase = res.rows[0].data;
+        return memoryDatabase;
+      }
+    } catch (pgErr) {
+      console.warn('[Vercel Serverless] Lỗi đọc từ PostgreSQL / Supabase, thử fallback tiếp theo:', pgErr);
+    }
+  }
+
+  // 2. Kiểm tra Vercel KV / Upstash Redis nếu được cấu hình
   const kvUrl = process.env.KV_REST_API_URL || process.env.VERCEL_KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN || process.env.VERCEL_KV_REST_API_TOKEN;
 
@@ -70,10 +130,10 @@ async function loadData() {
     }
   }
 
-  // 2. Kiểm tra bộ nhớ RAM
+  // 3. Kiểm tra bộ nhớ RAM
   if (memoryDatabase) return memoryDatabase;
 
-  // 3. Kiểm tra file tạm /tmp trên máy chủ Vercel
+  // 4. Kiểm tra file tạm /tmp trên máy chủ Vercel
   try {
     if (fs.existsSync(VERCEL_DATA_FILE)) {
       const raw = fs.readFileSync(VERCEL_DATA_FILE, 'utf-8');
@@ -85,11 +145,26 @@ async function loadData() {
   }
 
   memoryDatabase = getInitialData();
+
+  // Khởi tạo dữ liệu ban đầu vào Postgres nếu bảng trống
+  if (pool && memoryDatabase) {
+    try {
+      await ensurePgTable(pool);
+      await pool.query(
+        `INSERT INTO govtask_system_storage (id, data, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO NOTHING`,
+        ['govtask_mttq_db', JSON.stringify(memoryDatabase)]
+      );
+      console.log('[Vercel Serverless] Khởi tạo dữ liệu ban đầu vào PostgreSQL / Supabase thành công!');
+    } catch (seedErr) {
+      console.warn('[Vercel Serverless] Không thể lưu dữ liệu khởi tạo vào PostgreSQL:', seedErr);
+    }
+  }
+
   return memoryDatabase;
 }
 
 /**
- * Lưu dữ liệu vào Vercel KV (nếu có), đồng thời ghi vào RAM và /tmp
+ * Lưu dữ liệu vào PostgreSQL / Supabase, Vercel KV, RAM và /tmp
  */
 async function saveData(payload: any) {
   const current = await loadData();
@@ -101,14 +176,31 @@ async function saveData(payload: any) {
   };
   memoryDatabase = merged;
 
-  // 1. Ghi vào file /tmp trên Vercel Serverless
+  // 1. Ghi vĩnh viễn vào PostgreSQL / Supabase
+  const pool = getPgPool();
+  if (pool) {
+    try {
+      await ensurePgTable(pool);
+      await pool.query(
+        `INSERT INTO govtask_system_storage (id, data, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+        ['govtask_mttq_db', JSON.stringify(merged)]
+      );
+      console.log('[Vercel Serverless] ✅ Đã lưu dữ liệu thành công vào PostgreSQL / Supabase!');
+    } catch (pgErr) {
+      console.warn('[Vercel Serverless] ❌ Lỗi ghi vào PostgreSQL / Supabase:', pgErr);
+    }
+  }
+
+  // 2. Ghi vào file /tmp trên Vercel Serverless
   try {
     fs.writeFileSync(VERCEL_DATA_FILE, JSON.stringify(merged, null, 2), 'utf-8');
   } catch (err) {
     console.warn('[Vercel Serverless] Không ghi được /tmp:', err);
   }
 
-  // 2. Ghi vĩnh viễn vào Vercel KV / Upstash Redis nếu có
+  // 3. Ghi vĩnh viễn vào Vercel KV / Upstash Redis nếu có
   const kvUrl = process.env.KV_REST_API_URL || process.env.VERCEL_KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN || process.env.VERCEL_KV_REST_API_TOKEN;
 
@@ -206,12 +298,19 @@ export default async function handler(req: IncomingMessage & { query?: any; body
 
   if (url.includes('/api/system/status')) {
     const data = await loadData();
+    const hasPg = Boolean(getPgPool());
     const hasKv = Boolean(process.env.KV_REST_API_URL || process.env.VERCEL_KV_REST_API_URL);
+
+    let storageEngine = 'Vercel Serverless File/RAM Store';
+    if (hasPg) storageEngine = 'Supabase / Vercel PostgreSQL Database';
+    else if (hasKv) storageEngine = 'Vercel KV (Persistent Redis)';
+
     res.setHeader('Content-Type', 'application/json');
     res.statusCode = 200;
     res.end(JSON.stringify({
       success: true,
-      storageEngine: hasKv ? 'Vercel KV (Persistent Redis)' : 'Vercel Serverless File/RAM Store',
+      storageEngine,
+      hasPg,
       hasKv,
       tasksCount: data?.tasks?.length || 0,
       usersCount: data?.users?.length || 0,
@@ -226,3 +325,4 @@ export default async function handler(req: IncomingMessage & { query?: any; body
   res.statusCode = 200;
   res.end(JSON.stringify({ success: true, service: 'GovTask Vercel Serverless API' }));
 }
+
