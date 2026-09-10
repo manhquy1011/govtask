@@ -151,6 +151,10 @@ interface AppContextType {
   lastServerSyncAt: string | null;
   serverSyncStatus: 'SYNCED' | 'SYNCING' | 'OFFLINE' | 'ERROR';
   saveToServer: (customNote?: string) => Promise<boolean>;
+
+  // Mobile Navigation Drawer
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: (open: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -295,6 +299,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isSmartAssignModalOpen, setIsSmartAssignModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Server persistence & sync state
   const [isServerSyncing, setIsServerSyncing] = useState<boolean>(false);
@@ -1707,6 +1712,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         lastServerSyncAt,
         serverSyncStatus,
         saveToServer,
+        isMobileMenuOpen,
+        setIsMobileMenuOpen,
       }}
     >
       {children}

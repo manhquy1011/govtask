@@ -13,7 +13,8 @@ import {
   HelpCircle,
   Table2,
   LogOut,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -30,6 +31,8 @@ export const Sidebar: React.FC = () => {
     canViewAllAgency,
     logout,
     isServerSyncing,
+    isMobileMenuOpen,
+    setIsMobileMenuOpen
   } = useApp();
 
   const overdueCount = userPermittedTasks.filter(t => t.status === 'OVERDUE').length;
@@ -84,8 +87,8 @@ export const Sidebar: React.FC = () => {
     },
   ];
 
-  return (
-    <aside className="w-64 bg-slate-900 text-slate-200 flex flex-col shrink-0 min-h-[calc(100vh-4rem)]">
+  const renderSidebarInner = (isMobile: boolean) => (
+    <>
       {/* Current Scope Banner */}
       <div className="p-4 border-b border-slate-800 bg-slate-950/60">
         <div className="flex items-center space-x-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -121,8 +124,11 @@ export const Sidebar: React.FC = () => {
           return (
             <button
               key={item.id}
-              id={`nav-${item.id}`}
-              onClick={() => setActiveTab(item.id as any)}
+              id={isMobile ? `mobile-nav-${item.id}` : `nav-${item.id}`}
+              onClick={() => {
+                setActiveTab(item.id as any);
+                if (isMobile) setIsMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 isActive
                   ? 'bg-red-600 text-white shadow-md shadow-red-600/30 font-bold'
@@ -165,8 +171,11 @@ export const Sidebar: React.FC = () => {
 
         {/* Quick Logout Button */}
         <button
-          id="btn-sidebar-logout"
-          onClick={logout}
+          id={isMobile ? 'btn-mobile-sidebar-logout' : 'btn-sidebar-logout'}
+          onClick={() => {
+            if (isMobile) setIsMobileMenuOpen(false);
+            logout();
+          }}
           disabled={isServerSyncing}
           className="w-full py-2.5 px-3 rounded-xl bg-slate-800/90 hover:bg-rose-950 hover:text-rose-200 text-slate-200 text-xs font-bold border border-slate-700 hover:border-rose-700 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
           title="Đăng xuất và tự động lưu toàn bộ dữ liệu vào máy chủ"
@@ -184,6 +193,46 @@ export const Sidebar: React.FC = () => {
           )}
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile Drawer Overlay */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+
+          {/* Slide-in Mobile Drawer */}
+          <aside className="relative w-72 max-w-[85vw] bg-slate-900 text-slate-200 flex flex-col h-full z-10 shadow-2xl">
+            <div className="p-3.5 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Building2 className="w-4 h-4 text-red-400" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Danh Mục Điều Hành</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                aria-label="Đóng menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {renderSidebarInner(true)}
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop Permanent Sidebar */}
+      <aside className="hidden md:flex w-64 bg-slate-900 text-slate-200 flex-col shrink-0 min-h-[calc(100vh-4rem)]">
+        {renderSidebarInner(false)}
+      </aside>
+    </>
   );
 };
+

@@ -21,7 +21,9 @@ import {
   Phone,
   Key,
   Activity,
-  Radio
+  Radio,
+  Menu,
+  X
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -46,7 +48,9 @@ export const Header: React.FC = () => {
     activeTab,
     canCreateTask,
     canViewAllAgency,
-    logout
+    logout,
+    isMobileMenuOpen,
+    setIsMobileMenuOpen
   } = useApp();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -92,33 +96,43 @@ export const Header: React.FC = () => {
   const roleInfo = getRoleBadge(currentUser.role);
 
   return (
-    <header className="bg-gradient-to-r from-red-800 via-red-700 to-red-900 border-b border-red-950 sticky top-0 z-30 shadow-md h-[80px] w-full max-w-[1997px] mx-auto text-white">
-      <div className="w-[1997px] max-w-full mx-auto px-4 sm:px-6 lg:px-8 h-full">
-        <div className="flex items-center justify-between h-[80px]">
+    <header className="bg-gradient-to-r from-red-800 via-red-700 to-red-900 border-b border-red-950 sticky top-0 z-30 shadow-md min-h-[64px] sm:h-[80px] w-full text-white">
+      <div className="w-full max-w-[1997px] mx-auto px-2 sm:px-6 lg:px-8 h-full">
+        <div className="flex items-center justify-between min-h-[64px] sm:h-[80px] py-2 sm:py-0">
           
-          {/* Brand Logo & Name */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-14 h-14 shrink-0">
+          {/* Brand Logo & Name + Mobile Drawer Toggle */}
+          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+            {/* Mobile Hamburger Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-1.5 rounded-lg bg-red-950/70 hover:bg-red-950 border border-red-500/40 text-white md:hidden shrink-0 transition-colors"
+              aria-label="Mở danh mục điều hành"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            <div className="flex items-center justify-center w-10 h-10 sm:w-14 sm:h-14 shrink-0">
               <img
                 src="/logo-mat-tran-to-quoc-viet-nam-png.png"
                 alt="Biểu trưng Ủy ban Mặt trận Tổ quốc Việt Nam"
-                className="w-14 h-14 object-contain drop-shadow-md transition-transform hover:scale-105"
+                className="w-10 h-10 sm:w-14 sm:h-14 object-contain drop-shadow-md transition-transform hover:scale-105"
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center space-x-2">
-                <span className="font-extrabold text-white text-sm sm:text-base tracking-tight uppercase w-[350px] inline-block truncate drop-shadow-xs">
+                <span className="font-extrabold text-white text-xs sm:text-base tracking-tight uppercase max-w-[140px] xs:max-w-[200px] sm:max-w-[350px] truncate drop-shadow-xs">
                   UB MTTQ VIỆT NAM TỈNH BẮC NINH
                 </span>
               </div>
               <p className="text-[11px] text-red-100 hidden sm:block font-medium">
                 Hệ Thống Quản Lý & Điều Hành Công Việc
               </p>
-              <div className="mt-0.5">
+              <div className="mt-0.5 hidden xs:block">
                 <button
                   type="button"
-                  className="text-[10px] px-2 py-0.5 rounded-full bg-red-950/70 text-amber-200 font-bold border border-amber-400/40 inline-flex items-center hover:bg-red-950 transition-colors cursor-default shadow-xs"
+                  className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-red-950/70 text-amber-200 font-bold border border-amber-400/40 inline-flex items-center hover:bg-red-950 transition-colors cursor-default shadow-xs"
                 >
                   Cơ Quan Nhà Nước
                 </button>
@@ -276,16 +290,16 @@ export const Header: React.FC = () => {
               <button
                 id="btn-role-switcher"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center justify-between p-1.5 px-2.5 rounded-lg bg-red-950/70 border border-red-500/40 hover:bg-red-950/90 transition-colors w-[200px] text-white shadow-inner"
+                className="flex items-center justify-between p-1 sm:p-1.5 px-1.5 sm:px-2.5 rounded-lg bg-red-950/70 border border-red-500/40 hover:bg-red-950/90 transition-colors w-auto sm:w-[200px] text-white shadow-inner"
                 title="Xem thông tin tài khoản CCCD / Chuyển đổi vai trò kiểm thử"
               >
                 <div className="flex items-center space-x-2 min-w-0">
                   <img
                     src={currentUser.avatar}
                     alt={currentUser.fullName}
-                    className="w-8 h-8 rounded-full object-cover ring-1 ring-amber-300/70 shrink-0"
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-1 ring-amber-300/70 shrink-0"
                   />
-                  <div className="text-left min-w-0">
+                  <div className="text-left min-w-0 hidden sm:block">
                     <div className="text-xs font-bold text-white leading-tight truncate">
                       {currentUser.fullName}
                     </div>
@@ -294,7 +308,7 @@ export const Header: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <ChevronDown className="w-4 h-4 text-red-200 shrink-0 ml-1" />
+                <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-200 shrink-0 ml-1" />
               </button>
 
               {/* Role Switcher Menu */}
